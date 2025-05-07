@@ -4,8 +4,6 @@ from PyPDF2 import PdfReader
 import os
 import io
 
-# -------------------- RLE Custom Algorithm --------------------
-
 def run_length_encode_custom(text, marker="#"):
     if not text:
         return ""
@@ -24,7 +22,6 @@ def run_length_encode_custom(text, marker="#"):
             prev_char = char
             count = 1
 
-    # Akhiri dengan sisa karakter
     if count >= 3:
         encoded += f"{marker}{count}{prev_char}"
     else:
@@ -79,12 +76,26 @@ def get_size_in_kb(size_bytes):
 
 # -------------------- UI --------------------
 
-st.set_page_config(page_title="SiKompres", page_icon="📄")
-st.title("📄 SiKompres")
-st.markdown("🔧 Kompresi & Dekompresi File (Run-Length Encoding )")
+st.set_page_config(page_title="SiKompres", page_icon="📄", layout="centered")
 
-mode = st.radio("Pilih Mode:", ["Kompresi", "Dekompresi"])
-uploaded_file = st.file_uploader("📁 Unggah file", type=["docx", "txt", "pdf"])
+st.markdown("""
+    <h1 style='text-align: center; color: #4CAF50;'>📄 My Kompres</h1>
+    <p style='text-align: center;'>🔧 Kompresi & Dekompresi File menggunakan <b>Run-Length Encoding</b> (RLE)</p>
+    """, unsafe_allow_html=True)
+
+with st.container():
+    st.markdown("### 🔽 Pilih Mode Operasi")
+    mode = st.radio("Apa yang ingin Anda lakukan?", ["🗜️ Kompresi", "📂 Dekompresi"], horizontal=True, label_visibility="collapsed")
+    mode = "Kompresi" if "Kompresi" in mode else "Dekompresi"
+
+    st.markdown("### 📁 Unggah File Anda")
+    uploaded_file = st.file_uploader(
+        "Pilih file berformat `.docx`, `.txt`, atau `.pdf`", 
+        type=["docx", "txt", "pdf"],
+        help="File PDF hanya bisa dikompresi, bukan didekompresi."
+    )
+
+# -------------------- File Handling --------------------
 
 if uploaded_file:
     file_bytes = uploaded_file.read()
@@ -92,10 +103,11 @@ if uploaded_file:
     result_io = io.BytesIO()
     result_ext = ext
 
-    with st.spinner("⏳ Memproses..."):
+    with st.spinner("⏳ Memproses file..."):
+        progress = st.progress(10)
         original_size = get_size_in_kb(len(file_bytes))
+        progress.progress(30)
 
-        # KOMPresi
         if mode == "Kompresi":
             if ext == ".docx":
                 text = extract_text_from_docx(io.BytesIO(file_bytes))
@@ -113,8 +125,7 @@ if uploaded_file:
                 result_io = create_txt_buffer(encoded)
                 result_ext = ".txt"
 
-        # DEKompresi
-        else:
+        else:  # Dekompresi
             if ext == ".docx":
                 text = extract_text_from_docx(io.BytesIO(file_bytes))
                 decoded = run_length_decode_custom(text)
@@ -129,13 +140,18 @@ if uploaded_file:
                 st.warning("⚠️ File PDF tidak bisa didekompresi secara langsung. Gunakan file hasil kompresi (.txt/.docx).")
                 result_io = None
 
+        progress.progress(80)
+
         if result_io:
             result_size = get_size_in_kb(len(result_io.getvalue()))
             download_name = filename + ("_compressed" if mode == "Kompresi" else "_decompressed") + result_ext
 
-            col1, col2 = st.columns(2)
-            col1.metric("📄 Ukuran Asli", f"{original_size} KB")
-            col2.metric("🗜️ Ukuran Hasil", f"{result_size} KB")
+            with st.expander("📊 Lihat Ringkasan Ukuran File"):
+                col1, col2 = st.columns(2)
+                col1.metric("📄 Ukuran Asli", f"{original_size} KB")
+                col2.metric("🗜️ Ukuran Hasil", f"{result_size} KB")
 
             st.success("✅ File berhasil diproses.")
             st.download_button("⬇️ Unduh File", data=result_io, file_name=download_name)
+
+        progress.progress(100)
